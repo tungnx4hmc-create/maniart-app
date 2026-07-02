@@ -57,14 +57,15 @@ export default function CoursePackages({
 }: CoursePackagesProps) {
   // Available groups for filtering
   const groups = [
-    { id: "all", label: "Tất cả bài học", count: "20 bài", icon: "⚡" },
+    { id: "all", label: "Tất cả bài học", count: "26 bài", icon: "⚡" },
     { id: "newbie", label: "Nhóm 1: Newbie Media", count: "6 bài", icon: "🌱" },
     { id: "pro", label: "Nhóm 2: Media Pro (Nâng Cao)", count: "5 bài", icon: "🔥" },
     { id: "tiktok", label: "Nhóm 3: TikTok Creator", count: "8 bài", icon: "📱" },
     { id: "youtube", label: "Nhóm 4: YouTube Vlogger", count: "7 bài", icon: "🎥" },
   ];
 
-  const [activeGroup, setActiveGroup] = useState("all");
+  const [exploreAll, setExploreAll] = useState(false);
+  const [activeGroup, setActiveGroup] = useState("newbie");
   const [activeVideoLesson, setActiveVideoLesson] = useState<Lesson | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [videoProgress, setVideoProgress] = useState(0);
@@ -708,40 +709,82 @@ export default function CoursePackages({
                 </h3>
               </div>
 
+              {/* Custom Toggle Switch for Explore All */}
+              <div 
+                onClick={() => {
+                  const newVal = !exploreAll;
+                  setExploreAll(newVal);
+                  if (newVal) {
+                    setActiveGroup("all");
+                  } else {
+                    setActiveGroup("newbie");
+                  }
+                }}
+                className={`flex items-center justify-between p-3.5 rounded-2xl border cursor-pointer transition-all duration-300 select-none ${
+                  exploreAll 
+                    ? "bg-[#C5A022]/5 border-[#C5A022]/30 shadow-sm" 
+                    : "bg-zinc-50 border-zinc-200/80 hover:bg-zinc-100/60"
+                }`}
+              >
+                <div className="flex flex-col pr-2">
+                  <span className={`text-xs font-black uppercase tracking-wide flex items-center gap-1.5 ${
+                    exploreAll ? "text-[#C5A022]" : "text-zinc-800"
+                  }`}>
+                    <Sparkles className={`h-3.5 w-3.5 ${exploreAll ? "text-[#C5A022]" : "text-zinc-400"}`} /> Mở khám phá tất cả
+                  </span>
+                  <span className="text-[10px] text-zinc-500 font-medium leading-relaxed mt-0.5">
+                    Hiển thị trọn bộ 26 bài học
+                  </span>
+                </div>
+                <div
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    exploreAll ? "bg-[#C5A022]" : "bg-zinc-200"
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      exploreAll ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </div>
+              </div>
+
               {/* Filtering Group Buttons */}
               <div className="space-y-2.5">
-                {groups.map((group) => {
-                  const isSelected = activeGroup === group.id;
-                  const isGroupPaid = purchasedGroups.includes("all") || purchasedGroups.includes(group.id);
-                  return (
-                    <button
-                      key={group.id}
-                      onClick={() => setActiveGroup(group.id)}
-                      className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl text-xs font-sans font-bold tracking-wide transition-all duration-300 border text-left cursor-pointer ${
-                        isSelected
-                          ? "bg-[#0F172A] text-white border-transparent shadow-lg shadow-black/15 translate-x-1"
-                          : "bg-white text-zinc-700 border-zinc-200/80 hover:bg-zinc-50 hover:border-[#C5A022]/40"
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <span className="text-base leading-none">{group.icon}</span>
-                        <span className="flex items-center gap-1.5">
-                          {group.label}
-                          {isGroupPaid && (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 font-mono font-bold uppercase animate-pulse">
-                              Đã mua
-                            </span>
-                          )}
+                {groups
+                  .filter((group) => group.id !== "all" || exploreAll)
+                  .map((group) => {
+                    const isSelected = activeGroup === group.id;
+                    const isGroupPaid = purchasedGroups.includes("all") || purchasedGroups.includes(group.id);
+                    return (
+                      <button
+                        key={group.id}
+                        onClick={() => setActiveGroup(group.id)}
+                        className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl text-xs font-sans font-bold tracking-wide transition-all duration-300 border text-left cursor-pointer ${
+                          isSelected
+                            ? "bg-[#0F172A] text-white border-transparent shadow-lg shadow-black/15 translate-x-1"
+                            : "bg-white text-zinc-700 border-zinc-200/80 hover:bg-zinc-50 hover:border-[#C5A022]/40"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <span className="text-base leading-none">{group.icon}</span>
+                          <span className="flex items-center gap-1.5">
+                            {group.label}
+                            {isGroupPaid && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 font-mono font-bold uppercase animate-pulse">
+                                Đã mua
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                        <span className={`text-[10px] font-mono font-semibold px-2.5 py-0.5 rounded-full ${
+                          isSelected ? "bg-[#C5A022] text-black" : "bg-zinc-100 text-zinc-500"
+                        }`}>
+                          {group.count}
                         </span>
-                      </div>
-                      <span className={`text-[10px] font-mono font-semibold px-2.5 py-0.5 rounded-full ${
-                        isSelected ? "bg-[#C5A022] text-black" : "bg-zinc-100 text-zinc-500"
-                      }`}>
-                        {group.count}
-                      </span>
-                    </button>
-                  );
-                })}
+                      </button>
+                    );
+                  })}
               </div>
 
               {/* Filtering Meta Details Label */}
@@ -883,10 +926,13 @@ export default function CoursePackages({
           <div className="lg:col-span-8 space-y-12">
             
             {modulesList.map((module) => {
-              // Only filter individual lesson visibility, keeping empty modules hidden or full module visible
+              // Filter to show only relevant lessons when choosing each specific category, and all lessons when choosing "all"
               const filteredLessons = activeGroup === "all"
                 ? module.lessons
-                : module.lessons; // Render all, but fade-out those not belonging to group!
+                : module.lessons.filter((l) => l.tag === activeGroup);
+
+              // If a module contains zero matching lessons, hide the module entirely
+              if (filteredLessons.length === 0) return null;
 
               const isExpanded = expandedModules.includes(module.num);
 
