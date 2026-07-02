@@ -1,5 +1,6 @@
 import React from "react";
-import { Sparkles, Settings, Award, Compass, HeartHandshake } from "lucide-react";
+import { Settings, Award, Compass, HeartHandshake } from "lucide-react";
+import Logo from "./Logo";
 
 interface NavbarProps {
   isAdmin: boolean;
@@ -17,18 +18,7 @@ export default function Navbar({ isAdmin, setIsAdmin, onScrollTo }: NavbarProps)
           className="flex cursor-pointer items-center space-x-2 group"
           id="nav-logo"
         >
-          <div className="relative flex h-10 w-10 items-center justify-center rounded-lg border border-[#C5A022]/30 bg-gradient-to-br from-[#C5A022]/20 to-black shadow-lg shadow-[#C5A022]/5 group-hover:border-[#FFD700] transition-all duration-300">
-            <Sparkles className="h-5 w-5 text-[#FFD700] animate-pulse" />
-            <div className="absolute inset-0 rounded-lg bg-[#C5A022]/10 blur opacity-0 group-hover:opacity-100 transition-opacity" />
-          </div>
-          <div>
-            <span className="font-display text-lg font-bold tracking-wider text-white uppercase">
-              HỌC <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FFD700] to-[#C5A022]">THỰC CHIẾN</span>
-            </span>
-            <span className="block text-[9px] font-mono tracking-widest text-[#C5A022]/70 uppercase">
-              LÀM CHỦ CÔNG CỤ
-            </span>
-          </div>
+          <Logo className="h-9" />
         </div>
 
         {/* Navigation Menu Links */}

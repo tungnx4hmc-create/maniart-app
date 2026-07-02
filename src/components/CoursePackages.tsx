@@ -696,15 +696,15 @@ export default function CoursePackages({
           {/* LEFT COLUMN: Sidebar Customizer & Selected Package Promo */}
           <div className="lg:col-span-4 space-y-6">
             
-            {/* White Interactive Panel */}
-            <div className="bg-white rounded-3xl p-6 sm:p-7 text-black shadow-2xl flex flex-col gap-5 border border-zinc-100">
+            {/* Black Interactive Panel */}
+            <div className="bg-zinc-950/80 rounded-3xl p-6 sm:p-7 text-white shadow-2xl flex flex-col gap-5 border border-zinc-800">
               
               {/* Sidebar Header */}
               <div>
                 <span className="text-[10px] font-mono font-bold tracking-widest text-[#C5A022] uppercase block mb-1">
                   CÁ NHÂN HÓA LỘ TRÌNH
                 </span>
-                <h3 className="font-display text-2xl font-extrabold tracking-tight text-[#0F172A] leading-tight">
+                <h3 className="font-display text-2xl font-extrabold tracking-tight text-white leading-tight">
                   Chọn Nhóm Đối Tượng
                 </h3>
               </div>
@@ -722,23 +722,23 @@ export default function CoursePackages({
                 }}
                 className={`flex items-center justify-between p-3.5 rounded-2xl border cursor-pointer transition-all duration-300 select-none ${
                   exploreAll 
-                    ? "bg-[#C5A022]/5 border-[#C5A022]/30 shadow-sm" 
-                    : "bg-zinc-50 border-zinc-200/80 hover:bg-zinc-100/60"
+                    ? "bg-[#C5A022]/10 border-[#C5A022]/30 shadow-sm" 
+                    : "bg-zinc-900/50 border-zinc-800 hover:bg-zinc-800/40"
                 }`}
               >
                 <div className="flex flex-col pr-2">
                   <span className={`text-xs font-black uppercase tracking-wide flex items-center gap-1.5 ${
-                    exploreAll ? "text-[#C5A022]" : "text-zinc-800"
+                    exploreAll ? "text-[#C5A022]" : "text-zinc-300"
                   }`}>
-                    <Sparkles className={`h-3.5 w-3.5 ${exploreAll ? "text-[#C5A022]" : "text-zinc-400"}`} /> Mở khám phá tất cả
+                    <Sparkles className={`h-3.5 w-3.5 ${exploreAll ? "text-[#C5A022]" : "text-zinc-500"}`} /> Mở khám phá tất cả
                   </span>
-                  <span className="text-[10px] text-zinc-500 font-medium leading-relaxed mt-0.5">
+                  <span className="text-[10px] text-zinc-400 font-medium leading-relaxed mt-0.5">
                     Hiển thị trọn bộ 26 bài học
                   </span>
                 </div>
                 <div
                   className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                    exploreAll ? "bg-[#C5A022]" : "bg-zinc-200"
+                    exploreAll ? "bg-[#C5A022]" : "bg-zinc-800"
                   }`}
                 >
                   <span
@@ -762,8 +762,8 @@ export default function CoursePackages({
                         onClick={() => setActiveGroup(group.id)}
                         className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl text-xs font-sans font-bold tracking-wide transition-all duration-300 border text-left cursor-pointer ${
                           isSelected
-                            ? "bg-[#0F172A] text-white border-transparent shadow-lg shadow-black/15 translate-x-1"
-                            : "bg-white text-zinc-700 border-zinc-200/80 hover:bg-zinc-50 hover:border-[#C5A022]/40"
+                            ? "bg-[#C5A022] text-black border-transparent shadow-lg shadow-[#C5A022]/10 translate-x-1"
+                            : "bg-zinc-900/40 text-zinc-300 border-zinc-800 hover:bg-zinc-850 hover:border-[#C5A022]/40"
                         }`}
                       >
                         <div className="flex items-center space-x-3">
@@ -771,14 +771,14 @@ export default function CoursePackages({
                           <span className="flex items-center gap-1.5">
                             {group.label}
                             {isGroupPaid && (
-                              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 font-mono font-bold uppercase animate-pulse">
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono font-bold uppercase animate-pulse">
                                 Đã mua
                               </span>
                             )}
                           </span>
                         </div>
                         <span className={`text-[10px] font-mono font-semibold px-2.5 py-0.5 rounded-full ${
-                          isSelected ? "bg-[#C5A022] text-black" : "bg-zinc-100 text-zinc-500"
+                          isSelected ? "bg-black/15 text-black" : "bg-zinc-850 text-zinc-400"
                         }`}>
                           {group.count}
                         </span>
@@ -788,9 +788,9 @@ export default function CoursePackages({
               </div>
 
               {/* Filtering Meta Details Label */}
-              <div className="border-t border-zinc-100 pt-4 flex items-center justify-between text-xs font-sans">
+              <div className="border-t border-zinc-800 pt-4 flex items-center justify-between text-xs font-sans">
                 <span className="text-zinc-400">Đang lọc theo:</span>
-                <span className="font-bold text-[#0F172A] flex items-center gap-1">
+                <span className="font-bold text-[#FFD700] flex items-center gap-1">
                   {activeGroup === "all" ? "⚡ Tất cả bài học" : 
                    activeGroup === "newbie" ? "🌱 Newbie Media" :
                    activeGroup === "pro" ? "🔥 Media Pro" :
@@ -800,29 +800,29 @@ export default function CoursePackages({
 
               {/* Stats Unlocked/Locked Widgets */}
               <div className="grid grid-cols-2 gap-3.5">
-                <div className="bg-zinc-50 rounded-2xl p-4 border border-zinc-100 text-center flex flex-col justify-center min-h-[90px]">
+                <div className="bg-zinc-900/40 rounded-2xl p-4 border border-zinc-800 text-center flex flex-col justify-center min-h-[90px]">
                   <span className="text-xs font-medium text-zinc-400 block mb-1">Học mở khóa</span>
-                  <span className="text-3xl font-black text-[#0F172A] font-display">
+                  <span className="text-3xl font-black text-[#FFD700] font-display">
                     {unlockedLessonsCount}
                   </span>
-                  <span className="text-[10px] text-zinc-400 mt-1 font-sans">bài tập trung</span>
+                  <span className="text-[10px] text-zinc-500 mt-1 font-sans">bài tập trung</span>
                 </div>
-                <div className="bg-zinc-50 rounded-2xl p-4 border border-zinc-100 text-center flex flex-col justify-center min-h-[90px]">
+                <div className="bg-zinc-900/40 rounded-2xl p-4 border border-zinc-800 text-center flex flex-col justify-center min-h-[90px]">
                   <span className="text-xs font-medium text-zinc-400 block mb-1">Bài bị khóa</span>
-                  <span className="text-3xl font-black text-zinc-400 font-display">
+                  <span className="text-3xl font-black text-zinc-500 font-display">
                     {lockedLessonsCount}
                   </span>
-                  <span className="text-[10px] text-zinc-400 mt-1 font-sans">bài bị khóa</span>
+                  <span className="text-[10px] text-zinc-500 mt-1 font-sans">bài bị khóa</span>
                 </div>
               </div>
 
               {/* Progress Level bar */}
               <div className="space-y-2">
-                <div className="flex justify-between items-center text-xs font-bold text-zinc-500 uppercase tracking-wide">
+                <div className="flex justify-between items-center text-xs font-bold text-zinc-400 uppercase tracking-wide">
                   <span>TỶ LỆ KHÓA HỌC PHÙ HỢP</span>
-                  <span className="font-mono text-[#0F172A]">{matchPercentage}%</span>
+                  <span className="font-mono text-white">{matchPercentage}%</span>
                 </div>
-                <div className="h-3 w-full bg-zinc-100 rounded-full overflow-hidden p-0.5 border border-zinc-200">
+                <div className="h-3 w-full bg-zinc-950 rounded-full overflow-hidden p-0.5 border border-zinc-800">
                   <div 
                     className="h-full bg-gradient-to-r from-[#C5A022] to-[#FFD700] rounded-full transition-all duration-700 ease-out shadow-[0_0_10px_rgba(197,160,34,0.3)]"
                     style={{ width: `${matchPercentage}%` }}
@@ -836,18 +836,18 @@ export default function CoursePackages({
                 return (
                   <div className={`rounded-2xl p-5 border relative overflow-hidden flex flex-col justify-between mt-2 transition-all duration-300 ${
                     isCurrentGroupPaid 
-                      ? "bg-gradient-to-b from-emerald-50/80 to-teal-50/50 border-emerald-100"
-                      : "bg-gradient-to-b from-[#EEF2FF] to-[#F5F7FF] border-indigo-100"
+                      ? "bg-gradient-to-b from-emerald-950/40 to-teal-950/20 border-emerald-800/60"
+                      : "bg-gradient-to-b from-zinc-900 to-zinc-950 border-zinc-800"
                   }`}>
                     <div>
                       <div className="flex items-center justify-between mb-2">
                         <span className={`text-xs font-black font-mono tracking-wider uppercase ${
-                          isCurrentGroupPaid ? "text-emerald-700" : "text-indigo-700"
+                          isCurrentGroupPaid ? "text-emerald-400" : "text-[#FFD700]"
                         }`}>
                           {promo.title}
                         </span>
                         <span className={`text-[9px] font-mono font-black uppercase px-2.5 py-0.5 rounded-full ${
-                          isCurrentGroupPaid ? "bg-emerald-600 text-white" : "bg-indigo-600 text-white"
+                          isCurrentGroupPaid ? "bg-emerald-600 text-white" : "bg-zinc-800 text-zinc-300 border border-zinc-700"
                         }`}>
                           {isCurrentGroupPaid ? "Đã Mua" : promo.badge}
                         </span>
@@ -856,24 +856,24 @@ export default function CoursePackages({
                       {/* Price info */}
                       <div className="flex items-baseline space-x-1.5 mb-4">
                         {isCurrentGroupPaid ? (
-                          <span className="text-base font-black text-emerald-800 tracking-tight font-display flex items-center gap-1.5">
-                            <Check className="h-5 w-5 text-emerald-600 stroke-[3]" /> Đã kích hoạt hoàn chỉnh
+                          <span className="text-base font-black text-emerald-400 tracking-tight font-display flex items-center gap-1.5">
+                            <Check className="h-5 w-5 text-emerald-400 stroke-[3]" /> Đã kích hoạt hoàn chỉnh
                           </span>
                         ) : (
                           <>
-                            <span className="text-3xl font-black text-slate-900 tracking-tight font-display">
+                            <span className="text-3xl font-black text-white tracking-tight font-display">
                               {promo.price}đ
                             </span>
-                            <span className="text-xs text-zinc-500 font-medium">/trọn gói</span>
+                            <span className="text-xs text-zinc-400 font-medium">/trọn gói</span>
                           </>
                         )}
                       </div>
 
                       {/* Benefit Items */}
-                      <ul className="space-y-2.5 text-xs text-slate-700 mb-6 font-sans">
+                      <ul className="space-y-2.5 text-xs text-zinc-300 mb-6 font-sans">
                         {promo.benefits.map((ben, idx) => (
                           <li key={idx} className="flex items-start gap-2.5">
-                            <span className={`${isCurrentGroupPaid ? "text-emerald-600" : "text-indigo-600"} mt-0.5 shrink-0`}>
+                            <span className={`${isCurrentGroupPaid ? "text-emerald-400" : "text-[#FFD700]"} mt-0.5 shrink-0`}>
                               <CheckCircle2 className="h-4 w-4" />
                             </span>
                             <span className="leading-tight font-medium">{ben}</span>
@@ -888,7 +888,7 @@ export default function CoursePackages({
                       className={`w-full rounded-xl py-3.5 text-xs font-black tracking-widest uppercase transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-md ${
                         isCurrentGroupPaid
                           ? "bg-emerald-600 hover:bg-emerald-700 text-white"
-                          : "bg-[#0F172A] hover:bg-slate-800 text-white"
+                          : "bg-[#C5A022] hover:bg-[#FFD700] text-black"
                       }`}
                     >
                       {isCurrentGroupPaid ? "Vào Học Lộ Trình Này" : "Đăng Ký Gói Ngay"}
@@ -900,7 +900,7 @@ export default function CoursePackages({
                           const formEl = document.getElementById("consultation-form");
                           if (formEl) formEl.scrollIntoView({ behavior: "smooth" });
                         }}
-                        className="text-[11px] text-zinc-400 hover:text-[#0F172A] font-semibold text-center underline block mt-3 w-full transition-colors font-sans"
+                        className="text-[11px] text-zinc-400 hover:text-[#FFD700] font-semibold text-center underline block mt-3 w-full transition-colors font-sans"
                       >
                         Nhận tư vấn cá nhân hóa
                       </button>
@@ -912,7 +912,7 @@ export default function CoursePackages({
               {purchasedGroups.length > 0 && (
                 <button
                   onClick={handleResetPurchases}
-                  className="w-full text-center text-[10px] font-mono text-zinc-400 hover:text-red-500 transition-colors cursor-pointer mt-1"
+                  className="w-full text-center text-[10px] font-mono text-zinc-500 hover:text-red-400 transition-colors cursor-pointer mt-1"
                 >
                   ✕ Khôi phục trạng thái khóa học (Reset Demo)
                 </button>
@@ -973,10 +973,10 @@ export default function CoursePackages({
                         return (
                           <div
                             key={lesson.id}
-                            className={`relative rounded-2xl bg-white border p-5 shadow-sm transition-all duration-300 flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+                            className={`relative rounded-2xl bg-zinc-900/30 border p-5 shadow-sm transition-all duration-300 flex flex-col md:flex-row md:items-center justify-between gap-4 ${
                               isUnlocked
-                                ? "border-zinc-200/70 opacity-100 hover:scale-[1.01] hover:border-[#C5A022]/40 hover:shadow-md"
-                                : "border-zinc-100 opacity-40 grayscale-[40%]"
+                                ? "border-zinc-800 opacity-100 hover:scale-[1.01] hover:border-[#C5A022]/40 hover:shadow-md"
+                                : "border-zinc-900/60 opacity-40 grayscale-[40%]"
                             }`}
                           >
                             {/* Left contents */}
@@ -985,8 +985,8 @@ export default function CoursePackages({
                               {/* Icon Circle */}
                               <div className={`h-11 w-11 shrink-0 flex items-center justify-center rounded-xl border transition-colors ${
                                 isUnlocked 
-                                  ? "bg-zinc-50 border-zinc-200/80 text-black" 
-                                  : "bg-zinc-100 border-zinc-200 text-zinc-400"
+                                  ? "bg-zinc-850 border-zinc-800 text-[#FFD700]" 
+                                  : "bg-zinc-900 border-zinc-950 text-zinc-500"
                               }`}>
                                 {getLessonIcon(lesson.icon)}
                               </div>
@@ -1000,41 +1000,41 @@ export default function CoursePackages({
                                   
                                   {/* Tag Badges styled beautifully like the screenshot */}
                                   {lesson.tag === "tiktok" && (
-                                    <span className="bg-rose-50 text-rose-600 border border-rose-100/60 text-[9px] font-black tracking-wide px-2 py-0.5 rounded uppercase">
+                                    <span className="bg-rose-500/10 text-rose-400 border border-rose-500/20 text-[9px] font-black tracking-wide px-2 py-0.5 rounded uppercase">
                                       {lesson.tagLabel}
                                     </span>
                                   )}
                                   {lesson.tag === "youtube" && (
-                                    <span className="bg-blue-50 text-blue-600 border border-blue-100/60 text-[9px] font-black tracking-wide px-2 py-0.5 rounded uppercase">
+                                    <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[9px] font-black tracking-wide px-2 py-0.5 rounded uppercase">
                                       {lesson.tagLabel}
                                     </span>
                                   )}
                                   {lesson.tag === "newbie" && (
-                                    <span className="bg-emerald-50 text-emerald-600 border border-emerald-100/60 text-[9px] font-black tracking-wide px-2 py-0.5 rounded uppercase">
+                                    <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] font-black tracking-wide px-2 py-0.5 rounded uppercase">
                                       {lesson.tagLabel}
                                     </span>
                                   )}
                                   {lesson.tag === "pro" && (
-                                    <span className="bg-amber-50 text-amber-600 border border-amber-100/60 text-[9px] font-black tracking-wide px-2 py-0.5 rounded uppercase">
+                                    <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[9px] font-black tracking-wide px-2 py-0.5 rounded uppercase">
                                       {lesson.tagLabel}
                                     </span>
                                   )}
                                 </div>
 
-                                <h5 className="font-display text-sm sm:text-base font-extrabold text-[#0F172A] leading-tight">
+                                <h5 className="font-display text-sm sm:text-base font-extrabold text-white leading-tight">
                                   {lesson.title}
                                 </h5>
-                                <p className="font-sans text-xs text-zinc-500 leading-relaxed max-w-xl">
+                                <p className="font-sans text-xs text-zinc-400 leading-relaxed max-w-xl">
                                   {lesson.description}
                                 </p>
                               </div>
                             </div>
 
                             {/* Right action details */}
-                            <div className="flex md:flex-col items-center md:items-end justify-between md:justify-center gap-2.5 shrink-0 border-t md:border-t-0 pt-3 md:pt-0 border-zinc-100">
+                            <div className="flex md:flex-col items-center md:items-end justify-between md:justify-center gap-2.5 shrink-0 border-t md:border-t-0 pt-3 md:pt-0 border-zinc-800">
                               
                               {/* Duration label */}
-                              <span className="text-[11px] font-mono text-zinc-400 bg-zinc-50 px-3 py-1 rounded-full border border-zinc-100 font-semibold flex items-center gap-1">
+                              <span className="text-[11px] font-mono text-zinc-400 bg-zinc-950 px-3 py-1 rounded-full border border-zinc-800 font-semibold flex items-center gap-1">
                                 <span>🕒</span>
                                 <span>{lesson.duration}</span>
                               </span>
@@ -1043,16 +1043,16 @@ export default function CoursePackages({
                               {isUnlocked ? (
                                 <button
                                   onClick={() => openVideo(lesson)}
-                                  className="text-xs font-extrabold text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1 px-3 py-1.5 rounded-lg hover:bg-indigo-50/50 cursor-pointer font-sans"
+                                  className="text-xs font-extrabold text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1 px-3 py-1.5 rounded-lg hover:bg-amber-400/10 cursor-pointer font-sans"
                                 >
                                   Vào học <span className="text-base">→</span>
                                 </button>
                               ) : (
                                 <button
                                   onClick={() => handleRegister(lesson.tag)}
-                                  className="inline-flex items-center space-x-1.5 rounded-xl border border-amber-200/80 bg-amber-50 px-3 py-2 text-[10px] font-black text-amber-800 hover:bg-amber-100/70 transition-all cursor-pointer shadow-sm active:scale-95 uppercase font-sans tracking-wide"
+                                  className="inline-flex items-center space-x-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[10px] font-black text-amber-400 hover:bg-amber-500/20 transition-all cursor-pointer shadow-sm active:scale-95 uppercase font-sans tracking-wide"
                                 >
-                                  <Lock className="h-3 w-3 text-amber-600 shrink-0" />
+                                  <Lock className="h-3 w-3 text-amber-400 shrink-0" />
                                   <span>Mở khóa</span>
                                 </button>
                               )}

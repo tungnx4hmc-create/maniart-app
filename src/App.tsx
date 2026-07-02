@@ -7,6 +7,7 @@ import StudentSupport from "./components/StudentSupport";
 import ConsultationForm from "./components/ConsultationForm";
 import AICourseAdvisor from "./components/AICourseAdvisor";
 import AdminPanel from "./components/AdminPanel";
+import Logo from "./components/Logo";
 import { CoursePackage, StudentSupports, Consultation } from "./types";
 import { Sparkles, Phone, Mail, MapPin, Youtube, Instagram, FileVideo, ShieldCheck } from "lucide-react";
 
@@ -199,17 +200,7 @@ export default function App() {
             {/* Branding Column */}
             <div className="space-y-4 col-span-1 md:col-span-1.5">
               <div className="flex items-center space-x-2">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#C5A022]/30 bg-[#C5A022]/5">
-                  <Sparkles className="h-4 w-4 text-[#FFD700] animate-pulse" />
-                </div>
-                <div>
-                  <span className="font-sans text-base font-bold tracking-wider text-white uppercase">
-                    HỌC <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FFD700] to-[#C5A022]">THỰC CHIẾN</span>
-                  </span>
-                  <span className="block text-[8px] font-mono tracking-widest text-gray-500 uppercase">
-                    LÀM CHỦ CÔNG CỤ
-                  </span>
-                </div>
+                <Logo className="h-9 !items-start" />
               </div>
               <p className="text-gray-400 text-xs sm:text-sm leading-relaxed">
                 Học viện đào tạo video và làm phim thế hệ mới. Tiên phong ứng dụng AI, tối ưu hóa quy trình dựng phim chất lượng cao phục vụ truyền thông thương hiệu cá nhân và doanh nghiệp.
