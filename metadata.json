@@ -1,0 +1,6 @@
+{
+  "name": "Website Khóa Học & Backend Structure",
+  "description": "Website Khóa Học Thực Chiến & Làm Chủ Công Cụ course portal with fully persistent Express backend. Includes lead registration, live course packages editor, support programs customizer, and a server-side Gemini AI Course Advisor.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,84 @@
+{
+  "packages": [
+    {
+      "id": "package-1",
+      "name": "GÓI 1: NHẬP MÔN THỰC CHIẾN",
+      "price": "199.000",
+      "originalPrice": "499.000",
+      "period": "Khóa học lẻ",
+      "icon": "clapperboard",
+      "popular": false,
+      "description": "Làm quen nhanh chóng với giao diện phần mềm và quy trình sản xuất video cơ bản.",
+      "features": [
+        "Học 1: Làm chủ giao diện Premiere & CapCut PC trong 2 giờ",
+        "Học 2: Kỹ thuật cắt ghép nâng cơ bản, khớp nhạc tự động",
+        "Học 3: Chèn text, hiệu ứng chuyển cảnh cơ bản cuốn hút",
+        "Học 4: Quy trình xuất video chuẩn chất lượng cao TikTok/YouTube",
+        "Tặng kho Sound Effects (SFX) cơ bản"
+      ]
+    },
+    {
+      "id": "package-2",
+      "name": "GÓI 2: LÀM CHỦ CÔNG CỤ",
+      "price": "499.000",
+      "originalPrice": "1.299.000",
+      "period": "Toàn diện công cụ",
+      "icon": "video",
+      "popular": true,
+      "description": "Chuyên sâu hiệu ứng kỹ xảo, tư duy nhịp dựng và tối ưu hóa thời gian sản xuất.",
+      "features": [
+        "Toàn bộ nội dung của GÓI 1",
+        "Làm chủ Keyframe, chuyển động nâng cao và Masking",
+        "Kỹ thuật Blend màu phim Cinematic chuyên nghiệp",
+        "Xử lý và lọc âm thanh phòng thu, chống ồn thông minh",
+        "Tư duy dựng nhịp (Rhythm) và cắt nối chuyển cảnh đỉnh cao",
+        "Tặng kho 50+ Cinematic LUTs và Sound Effects độc quyền"
+      ]
+    },
+    {
+      "id": "package-3",
+      "name": "GÓI 3: CHUYÊN NGHIỆP - STUDIO",
+      "price": "999.000",
+      "originalPrice": "2.499.000",
+      "period": "Lộ trình Master",
+      "icon": "mic",
+      "popular": false,
+      "description": "Sản xuất video đỉnh cao, tư vấn lộ trình 1-1 và định hướng thương hiệu cá nhân kiếm tiền.",
+      "features": [
+        "Toàn bộ nội dung GÓI 1 & GÓI 2",
+        "Lộ trình xây dựng kênh triệu view từ con số 0",
+        "Kỹ năng biên kịch kịch bản phân cảnh chi tiết",
+        "Tư vấn trực tiếp 1-1 hàng tuần với giảng viên trong 1 tháng",
+        "Đồng hành hỗ trợ trọn đời trong group kín Studio VIP",
+        "Cơ hội nhận job dựng phim thực tế từ mạng lưới đối tác",
+        "Cung cấp License phần mềm bản quyền miễn phí 6 tháng"
+      ]
+    }
+  ],
+  "supports": {
+    "learning": [
+      "Hỗ trợ giải đáp thắc mắc 24/7 trực tiếp qua Discord/Zalo riêng bởi đội ngũ trợ giảng",
+      "Sửa bài tập chi tiết hàng tuần qua Zoom, nhận xét tỉ mỉ từng timeline, chuyển cảnh và nhịp cắt",
+      "Cung cấp hệ thống bài tập thực hành sát thực tế từ các dự án lớn đang vận hành",
+      "Cập nhật liên tục các tính năng AI mới nhất của công cụ để nâng cao hiệu suất làm việc"
+    ],
+    "development": [
+      "Định hướng xây dựng và tối ưu kênh cá nhân (TikTok, Reels, YouTube Shorts) đạt triệu view",
+      "Kết nối học viên xuất sắc với các nhà sáng tạo nội dung, doanh nghiệp có nhu cầu thuê Editor",
+      "Hướng dẫn lập hồ sơ năng lực (Portfolio) chuyên nghiệp và nghệ thuật đàm phán giá Freelancer",
+      "Hỗ trợ tư vấn thiết lập trang thiết bị máy móc, setup studio quay phim tại gia tối ưu ngân sách"
+    ]
+  },
+  "consultations": [
+    {
+      "id": "init-1",
+      "fullName": "Nguyễn Văn Trợ Giảng",
+      "phoneNumber": "0987654321",
+      "email": "trogiang@hocthucchien.vn",
+      "packageId": "package-2",
+      "note": "Tôi muốn đăng ký làm chủ công cụ sớm nhất.",
+      "status": "Đang chờ",
+      "createdAt": "2026-07-01T20:50:32.000Z"
+    }
+  ]
+}
