@@ -8,11 +8,13 @@ import ConsultationForm from "./components/ConsultationForm";
 import AICourseAdvisor from "./components/AICourseAdvisor";
 import AdminPanel from "./components/AdminPanel";
 import Logo from "./components/Logo";
+import AdminAuthModal from "./components/AdminAuthModal";
 import { CoursePackage, StudentSupports, Consultation } from "./types";
 import { Sparkles, Phone, Mail, MapPin, Youtube, Instagram, FileVideo, ShieldCheck } from "lucide-react";
 
 export default function App() {
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [packages, setPackages] = useState<CoursePackage[]>([]);
   const [supports, setSupports] = useState<StudentSupports>({ learning: [], development: [] });
   const [consultations, setConsultations] = useState<Consultation[]>([]);
@@ -46,6 +48,10 @@ export default function App() {
 
   useEffect(() => {
     fetchData();
+    const isAuthorized = sessionStorage.getItem("manjart_admin_authorized") === "true";
+    if (isAuthorized) {
+      setIsAdmin(true);
+    }
   }, []);
 
   // Smooth scroll handler
@@ -137,7 +143,18 @@ export default function App() {
     <div className="min-h-screen bg-[#050505] text-[#F5F5F5] flex flex-col justify-between selection:bg-[#C5A022] selection:text-black font-sans">
       
       {/* Navbar header */}
-      <Navbar isAdmin={isAdmin} setIsAdmin={setIsAdmin} onScrollTo={handleScrollTo} />
+      <Navbar 
+        isAdmin={isAdmin} 
+        setIsAdmin={(val) => {
+          if (val) {
+            setIsAuthModalOpen(true);
+          } else {
+            setIsAdmin(false);
+            sessionStorage.removeItem("manjart_admin_authorized");
+          }
+        }} 
+        onScrollTo={handleScrollTo} 
+      />
 
       {/* Main content body */}
       <main className="flex-grow">
@@ -281,6 +298,13 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      {/* Admin Authentication Modal */}
+      <AdminAuthModal 
+        isOpen={isAuthModalOpen} 
+        onClose={() => setIsAuthModalOpen(false)} 
+        onVerifySuccess={() => setIsAdmin(true)} 
+      />
     </div>
   );
 }

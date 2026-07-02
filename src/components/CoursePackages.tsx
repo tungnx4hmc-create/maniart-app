@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useAuth } from "../context/AuthContext";
 import { 
   Video, 
   Clapperboard, 
@@ -82,23 +83,16 @@ export default function CoursePackages({
     );
   };
 
-  // State for purchased groups (unlocked courses)
-  const [purchasedGroups, setPurchasedGroups] = useState<string[]>(() => {
-    try {
-      const saved = localStorage.getItem("purchased_groups");
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) {
-      return [];
-    }
-  });
-
-  useEffect(() => {
-    localStorage.setItem("purchased_groups", JSON.stringify(purchasedGroups));
-  }, [purchasedGroups]);
+  // Hook up Firebase Auth and Firestore for purchases
+  const { user, purchasedGroups, unlockGroup } = useAuth();
 
   const handleResetPurchases = () => {
-    setPurchasedGroups([]);
+    if (user) {
+      alert("Bạn đang đăng nhập bằng Google. Lịch sử khoá học đã mua được lưu trữ an toàn trên tài khoản của bạn.");
+      return;
+    }
     localStorage.removeItem("purchased_groups");
+    window.location.reload();
   };
 
   const handleCopy = (text: string, field: string) => {
@@ -117,10 +111,114 @@ export default function CoursePackages({
   const countdownInterval = useRef<any>(null);
   const autoCheckTimer = useRef<any>(null);
 
-  // Auto-simulation check for payments
+  // New order states for the real Techcombank automatic check
+  const [payFullName, setPayFullName] = useState("");
+  const [payPhoneNumber, setPayPhoneNumber] = useState("");
+  const [payEmail, setPayEmail] = useState("");
+  const [payMemo, setPayMemo] = useState("");
+  const [isInitializingOrder, setIsInitializingOrder] = useState(false);
+  const [orderError, setOrderError] = useState("");
+  const [hasInitializedOrder, setHasInitializedOrder] = useState(false);
+  const [isSimulatingPayment, setIsSimulatingPayment] = useState(false);
+
+  // Helper map function to get promo details for a specific group (static context)
+  const groupNameMap = (grp: string) => {
+    switch (grp) {
+      case "newbie":
+        return { amount: 599000, price: "599.000", mappedPkgId: "package-1" };
+      case "pro":
+        return { amount: 799000, price: "799.000", mappedPkgId: "package-3" };
+      case "tiktok":
+        return { amount: 699000, price: "699.000", mappedPkgId: "package-2" };
+      case "youtube":
+        return { amount: 699000, price: "699.000", mappedPkgId: "package-2" };
+      case "all":
+      default:
+        return { amount: 1490000, price: "1.490.000", mappedPkgId: "package-3" };
+    }
+  };
+
+  const initializePaymentOrder = async (name: string, phone: string, email: string, targetGroup: string) => {
+    setIsInitializingOrder(true);
+    setOrderError("");
+    const actualPromo = groupNameMap(targetGroup);
+    
+    try {
+      const response = await fetch("/api/payments/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: name,
+          phoneNumber: phone,
+          email: email,
+          packageId: actualPromo.mappedPkgId,
+          amount: actualPromo.amount,
+          groupName: targetGroup
+        })
+      });
+      
+      const data = await response.json();
+      if (response.ok && data.success) {
+        setPayMemo(data.order.memo);
+        
+        // Save student details to quickly resume next time
+        localStorage.setItem("manjart_student_name", name);
+        localStorage.setItem("manjart_student_phone", phone);
+        if (email) localStorage.setItem("manjart_student_email", email);
+        
+        setHasInitializedOrder(true);
+        setPaymentStep("paying");
+        setPaymentTime(300);
+        setShowQRModal(true);
+      } else {
+        setOrderError(data.error || "Không thể khởi tạo đơn hàng. Vui lòng thử lại!");
+      }
+    } catch (err) {
+      console.error("Lỗi khởi tạo đơn hàng:", err);
+      setOrderError("Lỗi kết nối máy chủ. Vui lòng thử lại!");
+    } finally {
+      setIsInitializingOrder(false);
+    }
+  };
+
+  const handleSimulatePayment = async () => {
+    if (!payMemo) return;
+    setIsSimulatingPayment(true);
+    try {
+      const actualPromo = groupNameMap(activeGroup);
+      const res = await fetch("/api/payment-webhook", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: actualPromo.amount,
+          content: payMemo,
+          transferType: "in"
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setPaymentStep("checking");
+        setTimeout(() => {
+          setPaymentStep("success");
+          unlockGroup(activeGroup);
+        }, 2000);
+      } else {
+        alert(data.message || "Giả lập thất bại!");
+      }
+    } catch (err) {
+      console.error("Error simulating payment:", err);
+      alert("Lỗi kết nối giả lập!");
+    } finally {
+      setIsSimulatingPayment(false);
+    }
+  };
+
+  // Real Automatic Checking / Polling for Payments
   useEffect(() => {
-    if (showQRModal && paymentStep === "paying") {
-      // Countdown ticking
+    let pollingInterval: any = null;
+
+    if (showQRModal && hasInitializedOrder && paymentStep === "paying" && payMemo) {
+      // 1. Ticking countdown
       countdownInterval.current = setInterval(() => {
         setPaymentTime((prev) => {
           if (prev <= 1) {
@@ -131,26 +229,35 @@ export default function CoursePackages({
         });
       }, 1000);
 
-      // Auto-simulate scanning & receiving transaction after 8 seconds
-      autoCheckTimer.current = setTimeout(() => {
-        setPaymentStep("checking");
-        
-        autoCheckTimer.current = setTimeout(() => {
-          setPaymentStep("success");
-          setPurchasedGroups(prev => {
-            const target = activeGroup;
-            if (prev.includes(target)) return prev;
-            return [...prev, target];
-          });
-        }, 3500); // 3.5s for checking animation
-      }, 8000); // Wait 8 seconds before auto-detecting
+      // 2. Real-time polling `/api/payments/status/:memo` every 2.5 seconds
+      pollingInterval = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/payments/status/${payMemo}`);
+          const data = await res.json();
+          if (res.ok && data.success) {
+            if (data.status === "Completed") {
+              clearInterval(pollingInterval);
+              if (countdownInterval.current) clearInterval(countdownInterval.current);
+              
+              setPaymentStep("checking");
+              
+              setTimeout(() => {
+                setPaymentStep("success");
+                unlockGroup(activeGroup);
+              }, 2000);
+            }
+          }
+        } catch (err) {
+          console.error("Lỗi polling kiểm tra thanh toán:", err);
+        }
+      }, 2500);
     }
 
     return () => {
       if (countdownInterval.current) clearInterval(countdownInterval.current);
-      if (autoCheckTimer.current) clearTimeout(autoCheckTimer.current);
+      if (pollingInterval) clearInterval(pollingInterval);
     };
-  }, [showQRModal, paymentStep, activeGroup]);
+  }, [showQRModal, hasInitializedOrder, paymentStep, payMemo, activeGroup]);
 
   // Lesson list containing exactly 26 lessons matching the stats perfectly
   const lessons: Lesson[] = [
@@ -607,9 +714,28 @@ export default function CoursePackages({
       setActiveGroup(groupOverride);
     }
     
-    setPaymentStep("paying");
-    setPaymentTime(300);
-    setShowQRModal(true);
+    let savedName = localStorage.getItem("manjart_student_name") || "";
+    const savedPhone = localStorage.getItem("manjart_student_phone") || "";
+    let savedEmail = localStorage.getItem("manjart_student_email") || "";
+    
+    if (user) {
+      if (!savedName) savedName = user.displayName || "";
+      if (!savedEmail) savedEmail = user.email || "";
+    }
+    
+    setPayFullName(savedName);
+    setPayPhoneNumber(savedPhone);
+    setPayEmail(savedEmail);
+    setOrderError("");
+    
+    if (savedName && savedPhone) {
+      initializePaymentOrder(savedName, savedPhone, savedEmail, targetGroup);
+    } else {
+      setHasInitializedOrder(false);
+      setPaymentStep("paying");
+      setPaymentTime(300);
+      setShowQRModal(true);
+    }
   };
 
   // Video Player Logic
@@ -1251,263 +1377,363 @@ export default function CoursePackages({
               <X className="h-4 w-4" />
             </button>
 
-            {/* LEFT COLUMN: QR CODE GENERATOR PANEL */}
-            <div className="relative w-full md:w-5/12 bg-zinc-900 p-6 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-zinc-800 text-center">
-              
-              {paymentStep !== "success" ? (
-                <>
-                  <div className="mb-4">
-                    <span className="text-[10px] font-mono text-[#FFD700] font-black tracking-widest bg-[#C5A022]/10 border border-[#C5A022]/30 px-3 py-1 rounded-full uppercase block">
-                      Quét mã để học ngay
-                    </span>
-                  </div>
-
-                  {/* QR Image Frame with dynamic scanning line */}
-                  <div className="relative p-3 bg-white rounded-2xl border border-zinc-800 shadow-xl overflow-hidden group">
-                    
-                    {/* Scanning red line effect */}
-                    {paymentStep === "paying" && (
-                      <div className="absolute left-0 right-0 h-0.5 bg-red-500/80 shadow-[0_0_10px_#ef4444] animate-[bounce_3s_infinite] z-10" />
-                    )}
-
-                    <img 
-                      src={`https://img.vietqr.io/image/mbbank-0909123456-compact2.png?amount=${promo.amount}&addInfo=${promo.addInfo}&accountName=HOC%20VIEN%20HOC%20THUC%20CHIEN`}
-                      alt="Thanh toán QR tự động" 
-                      className="w-48 h-48 rounded-lg select-none mx-auto"
-                      referrerPolicy="no-referrer"
-                    />
-                  </div>
-
-                  <div className="mt-4 space-y-1.5">
-                    <div className="flex items-center justify-center space-x-1.5 text-zinc-400 text-xs">
-                      <QrCode className="h-4 w-4 text-[#FFD700]" />
-                      <span>Sử dụng ứng dụng ngân hàng</span>
-                    </div>
-                    <p className="text-[10px] text-zinc-500 max-w-xs leading-relaxed">
-                      Mã QR chứa sẵn số tiền và nội dung chuyển khoản chuẩn xác của hệ thống Học Thực Chiến.
-                    </p>
-                  </div>
-                </>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full py-10">
-                  <div className="relative">
-                    <div className="absolute -inset-4 bg-emerald-500/20 rounded-full blur animate-pulse" />
-                    <div className="relative h-20 w-20 bg-emerald-500 text-white rounded-full flex items-center justify-center shadow-lg">
-                      <Check className="h-10 w-10 stroke-[3]" />
-                    </div>
-                  </div>
-                  <h4 className="text-[#10B981] font-display text-lg font-black tracking-wide uppercase mt-6 mb-1">
-                    Kích hoạt thành công!
-                  </h4>
-                  <p className="text-[10px] font-mono text-zinc-400">
-                    GIAO DỊCH ĐÃ ĐƯỢC XÁC THỰC
-                  </p>
-                </div>
-              )}
-
-            </div>
-
-            {/* RIGHT COLUMN: ACCOUNT INFORMATION DETAILS */}
-            <div className="p-6 md:p-8 w-full md:w-7/12 flex flex-col justify-between text-zinc-300 bg-zinc-950/60">
-              
-              {paymentStep === "paying" && (
-                <div className="space-y-4">
+            {!hasInitializedOrder ? (
+              /* STEP 1: INITIALIZE ORDER FORM */
+              <div className="p-6 md:p-10 w-full flex flex-col justify-between text-zinc-300 bg-zinc-950/60">
+                <div className="space-y-6 max-w-md mx-auto w-full">
                   <div>
                     <span className="text-[10px] font-mono text-[#C5A022] tracking-wider uppercase block mb-1">
-                      HỆ THỐNG THANH TOÁN QUÉT QR TỰ ĐỘNG
+                      BƯỚC 1: KHỞI TẠO ĐƠN HÀNG THANH TOÁN
                     </span>
-                    <h4 className="font-display text-lg font-black text-white uppercase tracking-wide">
-                      {promo.title}
+                    <h4 className="font-display text-xl font-black text-white uppercase tracking-wide">
+                      Đăng ký gói {groupNameMap(activeGroup).price} VNĐ
                     </h4>
+                    <p className="text-xs text-zinc-400 mt-1">
+                      Vui lòng điền thông tin để nhận mã kích hoạt khóa học tự động sau khi thanh toán qua VietQR.
+                    </p>
                   </div>
 
-                  {/* Pricing and benefits */}
-                  <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-4 flex justify-between items-center">
+                  {orderError && (
+                    <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 text-xs text-red-400">
+                      ⚠️ {orderError}
+                    </div>
+                  )}
+
+                  <div className="space-y-4">
                     <div>
-                      <p className="text-xs text-zinc-400">Học phí trọn gói</p>
-                      <p className="text-xl font-black text-white font-display mt-0.5">{promo.price}đ</p>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-[10px] font-mono font-bold bg-[#FFD700]/10 text-[#FFD700] border border-[#FFD700]/20 px-2 py-0.5 rounded-md">
-                        {lessons.filter(l => activeGroup === "all" || l.tag === activeGroup).length} bài học tương tác
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Transfer Details Form */}
-                  <div className="space-y-2.5">
-                    
-                    {/* Bank Name */}
-                    <div className="flex items-center justify-between bg-zinc-900/50 border border-zinc-800/80 rounded-xl px-4 py-2.5 text-xs">
-                      <div>
-                        <span className="text-[9px] text-zinc-500 block">Ngân hàng thụ hưởng</span>
-                        <span className="font-bold text-white font-sans">MB BANK (Ngân hàng Quân Đội)</span>
-                      </div>
+                      <label className="block text-xs font-semibold text-zinc-400 mb-1">Họ và tên của bạn *</label>
+                      <input
+                        type="text"
+                        value={payFullName}
+                        onChange={(e) => setPayFullName(e.target.value)}
+                        placeholder="Ví dụ: Nguyễn Văn A"
+                        className="w-full bg-zinc-900 border border-zinc-800 focus:border-[#C5A022] focus:ring-1 focus:ring-[#C5A022] rounded-xl px-4 py-3 text-sm text-white outline-none transition-all"
+                        required
+                      />
                     </div>
 
-                    {/* Account Number */}
-                    <div className="flex items-center justify-between bg-zinc-900/50 border border-zinc-800/80 rounded-xl px-4 py-2.5 text-xs">
-                      <div>
-                        <span className="text-[9px] text-zinc-500 block">Số tài khoản</span>
-                        <span className="font-bold text-white font-mono text-sm">0909123456</span>
-                      </div>
-                      <button
-                        onClick={() => handleCopy("0909123456", "account")}
-                        className="text-[10px] text-[#FFD700] hover:underline flex items-center gap-1 cursor-pointer font-bold font-mono bg-zinc-800 px-2.5 py-1 rounded-md border border-zinc-700 active:scale-95 transition-all"
-                      >
-                        <Copy className="h-3 w-3" />
-                        <span>{copiedField === "account" ? "Đã copy" : "Copy STK"}</span>
-                      </button>
+                    <div>
+                      <label className="block text-xs font-semibold text-zinc-400 mb-1">Số điện thoại kích hoạt *</label>
+                      <input
+                        type="tel"
+                        value={payPhoneNumber}
+                        onChange={(e) => setPayPhoneNumber(e.target.value)}
+                        placeholder="Ví dụ: 0912345678"
+                        className="w-full bg-zinc-900 border border-zinc-800 focus:border-[#C5A022] focus:ring-1 focus:ring-[#C5A022] rounded-xl px-4 py-3 text-sm text-white outline-none transition-all"
+                        required
+                      />
                     </div>
 
-                    {/* Amount */}
-                    <div className="flex items-center justify-between bg-zinc-900/50 border border-zinc-800/80 rounded-xl px-4 py-2.5 text-xs">
-                      <div>
-                        <span className="text-[9px] text-zinc-500 block">Số tiền cần chuyển</span>
-                        <span className="font-bold text-white font-mono text-sm">{promo.amount.toLocaleString()} đ</span>
-                      </div>
-                      <button
-                        onClick={() => handleCopy(promo.amount.toString(), "amount")}
-                        className="text-[10px] text-[#FFD700] hover:underline flex items-center gap-1 cursor-pointer font-bold font-mono bg-zinc-800 px-2.5 py-1 rounded-md border border-zinc-700 active:scale-95 transition-all"
-                      >
-                        <Copy className="h-3 w-3" />
-                        <span>{copiedField === "amount" ? "Đã copy" : "Copy Số Tiền"}</span>
-                      </button>
-                    </div>
-
-                    {/* Description */}
-                    <div className="flex items-center justify-between bg-zinc-900/50 border border-zinc-800/80 rounded-xl px-4 py-2.5 text-xs">
-                      <div>
-                        <span className="text-[9px] text-zinc-500 block">Nội dung chuyển khoản chuẩn</span>
-                        <span className="font-bold text-white font-mono text-sm text-[#FFD700]">{promo.addInfo}</span>
-                      </div>
-                      <button
-                        onClick={() => handleCopy(promo.addInfo, "addInfo")}
-                        className="text-[10px] text-[#FFD700] hover:underline flex items-center gap-1 cursor-pointer font-bold font-mono bg-zinc-800 px-2.5 py-1 rounded-md border border-[#C5A022]/30 active:scale-95 transition-all text-transparent bg-clip-text bg-gradient-to-r from-[#FFD700] to-[#C5A022]"
-                      >
-                        <Copy className="h-3 w-3 text-[#FFD700]" />
-                        <span>{copiedField === "addInfo" ? "Đã copy" : "Copy Nội Dung"}</span>
-                      </button>
-                    </div>
-
-                  </div>
-
-                  {/* Countdown timer & Live feedback status */}
-                  <div className="pt-2 flex items-center justify-between border-t border-zinc-900">
-                    <div className="flex items-center space-x-2 text-xs">
-                      <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span>
-                      </span>
-                      <span className="text-zinc-400 text-[11px] animate-pulse">
-                        🔄 Đang chờ giao dịch tự động...
-                      </span>
-                    </div>
-
-                    <div className="text-right font-mono text-xs text-zinc-500">
-                      Hiệu lực mã: <span className="text-[#FFD700] font-bold">{Math.floor(paymentTime / 60)}:{String(paymentTime % 60).padStart(2, '0')}</span>
+                    <div>
+                      <label className="block text-xs font-semibold text-zinc-400 mb-1">Email liên hệ (Không bắt buộc)</label>
+                      <input
+                        type="email"
+                        value={payEmail}
+                        onChange={(e) => setPayEmail(e.target.value)}
+                        placeholder="username@gmail.com"
+                        className="w-full bg-zinc-900 border border-zinc-800 focus:border-[#C5A022] focus:ring-1 focus:ring-[#C5A022] rounded-xl px-4 py-3 text-sm text-white outline-none transition-all"
+                      />
                     </div>
                   </div>
 
-                  {/* Main Action trigger simulation bypass */}
-                  <div className="pt-2 flex flex-col sm:flex-row gap-2">
-                    <button
-                      onClick={() => {
-                        if (autoCheckTimer.current) clearTimeout(autoCheckTimer.current);
-                        setPaymentStep("checking");
-                        autoCheckTimer.current = setTimeout(() => {
-                          setPaymentStep("success");
-                          setPurchasedGroups(prev => {
-                            const target = activeGroup;
-                            if (prev.includes(target)) return prev;
-                            return [...prev, target];
-                          });
-                        }, 2000);
-                      }}
-                      className="flex-1 flex items-center justify-center space-x-1.5 rounded-xl bg-[#C5A022] hover:bg-[#FFD700] text-black text-xs font-black py-3 px-4 shadow-lg shadow-[#C5A022]/10 transition-all cursor-pointer"
-                    >
-                      <CheckCircle2 className="h-4 w-4" />
-                      <span>Xác nhận đã chuyển khoản</span>
-                    </button>
+                  <div className="pt-4 flex items-center justify-between gap-4">
                     <button
                       onClick={() => setShowQRModal(false)}
-                      className="rounded-xl border border-zinc-800 hover:bg-zinc-900 text-zinc-400 text-xs font-bold py-3 px-4 transition-colors cursor-pointer"
+                      className="rounded-xl border border-zinc-800 hover:bg-zinc-900 text-zinc-400 text-xs font-bold py-3 px-5 transition-colors cursor-pointer"
                     >
-                      Bỏ qua
+                      Hủy bỏ
                     </button>
-                  </div>
-                </div>
-              )}
-
-              {paymentStep === "checking" && (
-                <div className="flex flex-col items-center justify-center text-center py-10 space-y-6">
-                  <div className="relative">
-                    <Loader2 className="h-16 w-16 text-[#FFD700] animate-spin stroke-[2.5]" />
-                  </div>
-                  <div className="space-y-2">
-                    <h4 className="font-display text-lg font-extrabold text-white uppercase tracking-wider">
-                      Đang Kiểm Tra Giao Dịch Tự Động
-                    </h4>
-                    <p className="text-xs text-zinc-400 max-w-sm mx-auto leading-relaxed">
-                      Hệ thống đang kiểm tra biến động số dư tài khoản ngân hàng thụ hưởng và kích hoạt học tập tự động cho bạn. Quá trình này thường mất 3 - 5 giây.
-                    </p>
-                  </div>
-                  <div className="w-48 h-1 bg-zinc-800 rounded-full overflow-hidden p-0.5 border border-zinc-700">
-                    <div className="h-full bg-gradient-to-r from-[#C5A022] to-[#FFD700] rounded-full animate-[pulse_1.5s_infinite] w-2/3" />
-                  </div>
-                </div>
-              )}
-
-              {paymentStep === "success" && (
-                <div className="flex flex-col justify-between h-full py-2 space-y-6">
-                  <div className="space-y-4">
-                    <div className="inline-flex items-center space-x-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-400 font-mono tracking-wide">
-                      <Sparkles className="h-3.5 w-3.5" />
-                      <span>KÍCH HOẠT THÀNH CÔNG KHÓA HỌC</span>
-                    </div>
-
-                    <h3 className="font-display text-2xl font-black text-white leading-tight uppercase">
-                      Chào mừng bạn đến với lộ trình {promo.title}!
-                    </h3>
-
-                    <p className="text-xs text-zinc-400 leading-relaxed font-sans">
-                      Thanh toán của bạn đã được xác nhận tự động thành công. Hệ thống đã chính thức mở khóa toàn bộ bài học, học liệu thực chiến, kịch bản gốc và tài nguyên đi kèm. Bạn có thể bắt đầu nghiên cứu và thực hành ngay lập tức.
-                    </p>
-
-                    <div className="border border-emerald-500/20 rounded-2xl bg-emerald-500/5 p-4 space-y-2 text-xs">
-                      <p className="font-bold text-white">Quyền lợi vừa được mở khóa:</p>
-                      <ul className="space-y-1.5 text-zinc-400">
-                        <li className="flex items-center gap-1.5 text-[11px]">
-                          <span className="text-emerald-500">✓</span> Mở khóa đầy đủ video bài giảng độ phân giải cao (Full HD)
-                        </li>
-                        <li className="flex items-center gap-1.5 text-[11px]">
-                          <span className="text-emerald-500">✓</span> Hỗ trợ file mẫu kịch bản gốc và tài liệu setup đi kèm bài học
-                        </li>
-                        <li className="flex items-center gap-1.5 text-[11px]">
-                          <span className="text-emerald-500">✓</span> Đạt quyền lợi được giảng viên hỗ trợ trực tiếp từ diễn đàn
-                        </li>
-                      </ul>
-                    </div>
-                  </div>
-
-                  {/* Close and start studying trigger button */}
-                  <div className="pt-4 border-t border-zinc-900">
+                    
                     <button
                       onClick={() => {
-                        setShowQRModal(false);
-                        const el = document.getElementById("packages");
-                        if (el) el.scrollIntoView({ behavior: "smooth" });
+                        if (!payFullName.trim() || !payPhoneNumber.trim()) {
+                          setOrderError("Vui lòng điền đầy đủ Họ tên và Số điện thoại!");
+                          return;
+                        }
+                        initializePaymentOrder(payFullName, payPhoneNumber, payEmail, activeGroup);
                       }}
-                      className="w-full flex items-center justify-center space-x-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 py-3.5 text-xs font-black uppercase text-white shadow-lg shadow-emerald-500/10 hover:shadow-emerald-500/30 transition-all cursor-pointer hover:scale-[1.01] active:scale-[0.99]"
+                      disabled={isInitializingOrder}
+                      className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#C5A022] to-[#FFD700] py-3 text-xs font-black uppercase text-black shadow-lg shadow-[#C5A022]/10 hover:shadow-[#C5A022]/30 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-50"
                     >
-                      <span>Bắt Đầu Học Ngay</span>
-                      <span className="text-sm">→</span>
+                      {isInitializingOrder ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span>Đang khởi tạo...</span>
+                        </>
+                      ) : (
+                        <span>Lấy Mã QR Thanh Toán →</span>
+                      )}
                     </button>
                   </div>
                 </div>
-              )}
+              </div>
+            ) : (
+              /* STEP 2: DISPLAY DYNAMIC QR & VERIFY */
+              <>
+                {/* LEFT COLUMN: QR CODE GENERATOR PANEL */}
+                <div className="relative w-full md:w-5/12 bg-zinc-900 p-6 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-zinc-800 text-center">
+                  
+                  {paymentStep !== "success" ? (
+                    <>
+                      <div className="mb-4">
+                        <span className="text-[10px] font-mono text-[#FFD700] font-black tracking-widest bg-[#C5A022]/10 border border-[#C5A022]/30 px-3 py-1 rounded-full uppercase block">
+                          Quét mã để kích hoạt ngay
+                        </span>
+                      </div>
 
-            </div>
+                      {/* QR Image Frame with dynamic scanning line */}
+                      <div className="relative p-3 bg-white rounded-2xl border border-zinc-800 shadow-xl overflow-hidden group">
+                        
+                        {/* Scanning red line effect */}
+                        {paymentStep === "paying" && (
+                          <div className="absolute left-0 right-0 h-0.5 bg-red-500/80 shadow-[0_0_10px_#ef4444] animate-[bounce_3s_infinite] z-10" />
+                        )}
+
+                        <img 
+                          src={`https://img.vietqr.io/image/TCB-8333686886-compact2.png?amount=${groupNameMap(activeGroup).amount}&addInfo=${payMemo}&accountName=NGUYEN%20XUAN%20TUNG`}
+                          alt="Thanh toán QR tự động" 
+                          className="w-48 h-48 rounded-lg select-none mx-auto"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+
+                      <div className="mt-4 space-y-1.5">
+                        <div className="flex items-center justify-center space-x-1.5 text-zinc-400 text-xs">
+                          <QrCode className="h-4 w-4 text-[#FFD700]" />
+                          <span>Sử dụng app ngân hàng quét mã</span>
+                        </div>
+                        <p className="text-[10px] text-zinc-500 max-w-xs leading-relaxed">
+                          Hệ thống sử dụng cổng Techcombank nhận dạng tự động để kích hoạt ngay khóa học cho bạn.
+                        </p>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full py-10">
+                      <div className="relative">
+                        <div className="absolute -inset-4 bg-emerald-500/20 rounded-full blur animate-pulse" />
+                        <div className="relative h-20 w-20 bg-emerald-500 text-white rounded-full flex items-center justify-center shadow-lg">
+                          <Check className="h-10 w-10 stroke-[3]" />
+                        </div>
+                      </div>
+                      <h4 className="text-[#10B981] font-display text-lg font-black tracking-wide uppercase mt-6 mb-1">
+                        Kích hoạt thành công!
+                      </h4>
+                      <p className="text-[10px] font-mono text-zinc-400">
+                        GIAO DỊCH ĐÃ ĐƯỢC XÁC THỰC
+                      </p>
+                    </div>
+                  )}
+
+                </div>
+
+                {/* RIGHT COLUMN: ACCOUNT INFORMATION DETAILS */}
+                <div className="p-6 md:p-8 w-full md:w-7/12 flex flex-col justify-between text-zinc-300 bg-zinc-950/60">
+                  
+                  {paymentStep === "paying" && (
+                    <div className="space-y-4">
+                      <div>
+                        <span className="text-[10px] font-mono text-[#C5A022] tracking-wider uppercase block mb-1">
+                          HỆ THỐNG THANH TOÁN QUÉT QR TỰ ĐỘNG (TECHCOMBANK)
+                        </span>
+                        <h4 className="font-display text-base font-black text-white uppercase tracking-wide">
+                          Khóa Học: Gói {activeGroup.toUpperCase()}
+                        </h4>
+                      </div>
+
+                      {/* Pricing and benefits */}
+                      <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-4 flex justify-between items-center">
+                        <div>
+                          <p className="text-xs text-zinc-400">Học phí cần chuyển</p>
+                          <p className="text-lg font-black text-[#FFD700] font-display mt-0.5">{groupNameMap(activeGroup).price} đ</p>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[10px] font-mono font-bold bg-[#FFD700]/10 text-[#FFD700] border border-[#FFD700]/20 px-2 py-0.5 rounded-md">
+                            Kích hoạt: {payPhoneNumber}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Transfer Details Form */}
+                      <div className="space-y-2">
+                        
+                        {/* Bank Name */}
+                        <div className="flex items-center justify-between bg-zinc-900/50 border border-zinc-800/80 rounded-xl px-4 py-2 text-xs">
+                          <div>
+                            <span className="text-[9px] text-zinc-500 block">Ngân hàng thụ hưởng</span>
+                            <span className="font-bold text-white font-sans">TECHCOMBANK (Ngân hàng Kỹ thương)</span>
+                          </div>
+                        </div>
+
+                        {/* Account Name */}
+                        <div className="flex items-center justify-between bg-zinc-900/50 border border-zinc-800/80 rounded-xl px-4 py-2 text-xs">
+                          <div>
+                            <span className="text-[9px] text-zinc-500 block">Tên chủ tài khoản</span>
+                            <span className="font-bold text-white font-sans">NGUYEN XUAN TUNG</span>
+                          </div>
+                        </div>
+
+                        {/* Account Number */}
+                        <div className="flex items-center justify-between bg-zinc-900/50 border border-zinc-800/80 rounded-xl px-4 py-2 text-xs">
+                          <div>
+                            <span className="text-[9px] text-zinc-500 block">Số tài khoản</span>
+                            <span className="font-bold text-white font-mono text-sm">8333 6868 86</span>
+                          </div>
+                          <button
+                            onClick={() => handleCopy("8333686886", "account")}
+                            className="text-[10px] text-[#FFD700] hover:underline flex items-center gap-1 cursor-pointer font-bold font-mono bg-zinc-800 px-2.5 py-1 rounded-md border border-zinc-700 active:scale-95 transition-all"
+                          >
+                            <Copy className="h-3 w-3" />
+                            <span>{copiedField === "account" ? "Đã copy" : "Copy STK"}</span>
+                          </button>
+                        </div>
+
+                        {/* Description */}
+                        <div className="flex items-center justify-between bg-zinc-900/50 border border-zinc-800/80 rounded-xl px-4 py-2 text-xs">
+                          <div>
+                            <span className="text-[9px] text-zinc-500 block">Nội dung chuyển khoản chuẩn</span>
+                            <span className="font-bold text-white font-mono text-sm text-[#FFD700]">{payMemo}</span>
+                          </div>
+                          <button
+                            onClick={() => handleCopy(payMemo, "addInfo")}
+                            className="text-[10px] text-[#FFD700] hover:underline flex items-center gap-1 cursor-pointer font-bold font-mono bg-zinc-800 px-2.5 py-1 rounded-md border border-[#C5A022]/30 active:scale-95 transition-all text-transparent bg-clip-text bg-gradient-to-r from-[#FFD700] to-[#C5A022]"
+                          >
+                            <Copy className="h-3 w-3 text-[#FFD700]" />
+                            <span>{copiedField === "addInfo" ? "Đã copy" : "Copy Nội Dung"}</span>
+                          </button>
+                        </div>
+
+                      </div>
+
+                      {/* Polling feedback status */}
+                      <div className="pt-2 flex items-center justify-between border-t border-zinc-900">
+                        <div className="flex items-center space-x-2 text-xs">
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span>
+                          </span>
+                          <span className="text-zinc-400 text-[10px] animate-pulse font-mono uppercase tracking-wider">
+                            🔄 ĐANG ĐỢI CỔNG THANH TOÁN TECHCOMBANK ĐỐI SOÁT...
+                          </span>
+                        </div>
+
+                        <div className="text-right font-mono text-[10px] text-zinc-500">
+                          Hết hạn sau: <span className="text-[#FFD700] font-bold">{Math.floor(paymentTime / 60)}:{String(paymentTime % 60).padStart(2, '0')}</span>
+                        </div>
+                      </div>
+
+                      {/* Dynamic simulation helper block */}
+                      <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-xs text-amber-300">
+                        <p className="font-semibold mb-1">💡 Sandbox Testing (Dành cho Giáo viên & Học viên):</p>
+                        <p className="text-[10px] text-zinc-400 mb-2">
+                          Bạn có thể nhấp nút dưới đây để giả lập thông báo biến động số dư Techcombank từ cổng thanh toán tự động.
+                        </p>
+                        <button
+                          onClick={handleSimulatePayment}
+                          disabled={isSimulatingPayment}
+                          className="w-full flex items-center justify-center gap-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-[10px] uppercase py-2 cursor-pointer transition-colors disabled:opacity-50"
+                        >
+                          {isSimulatingPayment ? (
+                            <>
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              <span>Đang gửi webhook...</span>
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              <span>Giả lập chuyển khoản thành công</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      <div className="pt-2 flex justify-between gap-2">
+                        <button
+                          onClick={() => setHasInitializedOrder(false)}
+                          className="rounded-xl border border-zinc-800 hover:bg-zinc-900 text-zinc-400 text-xs font-bold py-2 px-4 transition-colors cursor-pointer"
+                        >
+                          Quay lại bước 1
+                        </button>
+                        <button
+                          onClick={() => setShowQRModal(false)}
+                          className="rounded-xl border border-zinc-800 hover:bg-zinc-900 text-zinc-400 text-xs font-bold py-2 px-4 transition-colors cursor-pointer"
+                        >
+                          Bỏ qua
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {paymentStep === "checking" && (
+                    <div className="flex flex-col items-center justify-center text-center py-10 space-y-6">
+                      <div className="relative">
+                        <Loader2 className="h-16 w-16 text-[#FFD700] animate-spin stroke-[2.5]" />
+                      </div>
+                      <div className="space-y-2">
+                        <h4 className="font-display text-lg font-extrabold text-white uppercase tracking-wider">
+                          Xác thực thanh toán tự động
+                        </h4>
+                        <p className="text-xs text-zinc-400 max-w-sm mx-auto leading-relaxed">
+                          Hệ thống đang kiểm tra biến động số dư tài khoản Techcombank 8333686886 và kích hoạt học tập tự động cho thuê bao {payPhoneNumber}.
+                        </p>
+                      </div>
+                      <div className="w-48 h-1 bg-zinc-800 rounded-full overflow-hidden p-0.5 border border-zinc-700">
+                        <div className="h-full bg-gradient-to-r from-[#C5A022] to-[#FFD700] rounded-full animate-[pulse_1.5s_infinite] w-2/3" />
+                      </div>
+                    </div>
+                  )}
+
+                  {paymentStep === "success" && (
+                    <div className="flex flex-col justify-between h-full py-2 space-y-6 animate-fade-in">
+                      <div className="space-y-4">
+                        <div className="inline-flex items-center space-x-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-400 font-mono tracking-wide">
+                          <Sparkles className="h-3.5 w-3.5 animate-pulse" />
+                          <span>MỞ KHÓA THÀNH CÔNG GÓI HỌC</span>
+                        </div>
+
+                        <h3 className="font-display text-2xl font-black text-white leading-tight uppercase">
+                          KÍCH HOẠT THÀNH CÔNG!
+                        </h3>
+
+                        <p className="text-xs text-zinc-400 leading-relaxed font-sans">
+                          Thanh toán chuyển khoản của bạn đã được đối soát chính xác 100%. Lộ trình <strong>{activeGroup.toUpperCase()}</strong> đã chính thức mở khóa toàn bộ bài giảng thực chiến, mẫu kịch bản phân cảnh và kho tài nguyên đi kèm cho số điện thoại <strong>{payPhoneNumber}</strong>.
+                        </p>
+
+                        <div className="border border-emerald-500/20 rounded-2xl bg-emerald-500/5 p-4 space-y-2 text-xs">
+                          <p className="font-bold text-emerald-400">Quyền lợi học tập mở khóa:</p>
+                          <ul className="space-y-1.5 text-zinc-400">
+                            <li className="flex items-center gap-1.5 text-[11px]">
+                              <span className="text-emerald-500">✓</span> Xem không giới hạn toàn bộ {lessons.filter(l => activeGroup === "all" || l.tag === activeGroup).length} bài học nhóm {activeGroup.toUpperCase()}
+                            </li>
+                            <li className="flex items-center gap-1.5 text-[11px]">
+                              <span className="text-emerald-500">✓</span> Hỗ trợ tài liệu phân cảnh chi tiết, file mẫu CapCut / Premiere
+                            </li>
+                            <li className="flex items-center gap-1.5 text-[11px]">
+                              <span className="text-emerald-500">✓</span> Đội ngũ giảng viên & trợ giảng đồng hành hỗ trợ thực hành
+                            </li>
+                          </ul>
+                        </div>
+                      </div>
+
+                      {/* Close and start studying trigger button */}
+                      <div className="pt-4 border-t border-zinc-900">
+                        <button
+                          onClick={() => {
+                            setShowQRModal(false);
+                            const el = document.getElementById("packages");
+                            if (el) el.scrollIntoView({ behavior: "smooth" });
+                          }}
+                          className="w-full flex items-center justify-center space-x-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 py-3.5 text-xs font-black uppercase text-white shadow-lg shadow-emerald-500/10 hover:shadow-emerald-500/30 transition-all cursor-pointer hover:scale-[1.01] active:scale-[0.99]"
+                        >
+                          <span>Bắt Đầu Học Ngay</span>
+                          <span className="text-sm">→</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                </div>
+              </>
+            )}
 
           </div>
 

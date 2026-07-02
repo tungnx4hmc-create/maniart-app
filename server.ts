@@ -67,6 +67,18 @@ function getGeminiClient(): GoogleGenAI | null {
 
 // --- REST API ENDPOINTS ---
 
+// 0. Verify Admin Access Code
+app.post("/api/admin/verify", (req, res) => {
+  const { code } = req.body;
+  const configuredCode = process.env.ADMIN_ACCESS_CODE || "MANJART_PRODUCTION_2026";
+  
+  if (code && code.trim() === configuredCode.trim()) {
+    return res.json({ success: true, message: "Xác thực thành công!" });
+  }
+  
+  return res.status(401).json({ success: false, error: "Mã truy cập không chính xác. Vui lòng thử lại!" });
+});
+
 // 1. Get Course Packages
 app.get("/api/packages", (req, res) => {
   const db = readDatabase();
@@ -170,6 +182,173 @@ app.delete("/api/consultations/:id", (req, res) => {
   db.consultations.splice(index, 1);
   writeDatabase(db);
   res.json({ message: "Deleted consultation successfully" });
+});
+
+// 8. Create a Payment Order
+app.post("/api/payments/create", (req, res) => {
+  const { fullName, phoneNumber, email, packageId, amount, groupName } = req.body;
+  if (!fullName || !phoneNumber || !amount || !packageId) {
+    return res.status(400).json({ error: "Họ tên, số điện thoại, gói khóa học và số tiền là bắt buộc!" });
+  }
+
+  const db = readDatabase();
+  const cleanPhone = phoneNumber.replace(/[^0-9]/g, "");
+  const cleanGroup = (groupName || "ALL").toUpperCase();
+  const memo = `MJ${cleanPhone}`.toUpperCase();
+
+  const newOrder = {
+    id: `order-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+    fullName,
+    phoneNumber: cleanPhone,
+    email: email || "",
+    packageId,
+    groupName: cleanGroup,
+    amount: Number(amount),
+    memo,
+    status: "Pending", // Pending, Completed
+    createdAt: new Date().toISOString()
+  };
+
+  if (!db.orders) {
+    db.orders = [];
+  }
+  
+  db.orders.unshift(newOrder);
+
+  // Auto-create a consultation registration record too
+  if (!db.consultations) {
+    db.consultations = [];
+  }
+  
+  db.consultations.unshift({
+    id: `consult-${Date.now()}`,
+    fullName,
+    phoneNumber,
+    email: email || "",
+    packageId,
+    note: `Khởi tạo đơn hàng quét QR: Gói ${cleanGroup} (${amount.toLocaleString()}đ) - Nội dung: ${memo}`,
+    status: "Đang thanh toán",
+    createdAt: new Date().toISOString()
+  });
+
+  writeDatabase(db);
+
+  res.status(201).json({
+    success: true,
+    order: newOrder
+  });
+});
+
+// 9.5 Get all payment orders (Admin action)
+app.get("/api/payments", (req, res) => {
+  const db = readDatabase();
+  if (!db.orders) {
+    db.orders = [];
+  }
+  res.json(db.orders);
+});
+
+// 9.6 Delete a payment order (Admin action)
+app.delete("/api/payments/:id", (req, res) => {
+  const { id } = req.params;
+  const db = readDatabase();
+  if (!db.orders) {
+    db.orders = [];
+  }
+  const index = db.orders.findIndex((o: any) => o.id === id);
+  if (index !== -1) {
+    db.orders.splice(index, 1);
+    writeDatabase(db);
+    return res.json({ success: true, message: "Đã xóa đơn hàng thành công!" });
+  }
+  res.status(404).json({ success: false, message: "Không tìm thấy đơn hàng!" });
+});
+
+// 9. Check status of order by memo
+app.get("/api/payments/status/:memo", (req, res) => {
+  const { memo } = req.params;
+  const db = readDatabase();
+  
+  if (!db.orders) {
+    db.orders = [];
+  }
+
+  const order = db.orders.find((o: any) => o.memo.toUpperCase() === memo.toUpperCase());
+  if (!order) {
+    return res.json({ success: false, status: "NotFound", message: "Không tìm thấy đơn hàng!" });
+  }
+
+  res.json({
+    success: true,
+    status: order.status,
+    order
+  });
+});
+
+// 10. Webhook endpoint for SePay / Casso / Manual Simulator
+app.post("/api/payment-webhook", (req, res) => {
+  const transactions = [];
+  
+  if (req.body.requests && Array.isArray(req.body.requests)) {
+    transactions.push(...req.body.requests);
+  } else if (Array.isArray(req.body)) {
+    transactions.push(...req.body);
+  } else {
+    transactions.push(req.body);
+  }
+
+  const db = readDatabase();
+  if (!db.orders) db.orders = [];
+  if (!db.consultations) db.consultations = [];
+
+  let matchedCount = 0;
+
+  for (const tx of transactions) {
+    const amount = Number(tx.amount || tx.transferAmount || 0);
+    const content = String(tx.content || tx.description || tx.memo || tx.transactionContent || "");
+    const transferType = String(tx.transferType || "in").toLowerCase();
+
+    if (transferType === "out" || amount <= 0) {
+      continue;
+    }
+
+    const matchedOrder = db.orders.find((order: any) => {
+      if (order.status === "Completed") return false;
+      const orderMemo = order.memo.toUpperCase();
+      const txContent = content.toUpperCase();
+      return txContent.includes(orderMemo);
+    });
+
+    if (matchedOrder) {
+      matchedOrder.status = "Completed";
+      matchedCount++;
+
+      // Update consultation status
+      const consult = db.consultations.find((c: any) => c.phoneNumber === matchedOrder.phoneNumber && c.packageId === matchedOrder.packageId);
+      if (consult) {
+        consult.status = "Đã kích hoạt";
+        consult.note += ` | Xác thực thanh toán tự động lúc ${new Date().toLocaleString()}`;
+      } else {
+        db.consultations.unshift({
+          id: `consult-${Date.now()}`,
+          fullName: matchedOrder.fullName,
+          phoneNumber: matchedOrder.phoneNumber,
+          email: matchedOrder.email,
+          packageId: matchedOrder.packageId,
+          note: `Đã tự động kích hoạt thành công qua cổng QR Techcombank. Nội dung CK: "${content}". Số tiền: ${amount.toLocaleString()}đ`,
+          status: "Đã kích hoạt",
+          createdAt: new Date().toISOString()
+        });
+      }
+    }
+  }
+
+  if (matchedCount > 0) {
+    writeDatabase(db);
+    return res.json({ success: true, message: `Kích hoạt thành công ${matchedCount} đơn hàng!`, matchedCount });
+  }
+
+  return res.json({ success: false, message: "Không tìm thấy đơn hàng phù hợp với nội dung chuyển khoản này.", transactionsProcessed: transactions.length });
 });
 
 // 7. AI Course Advisor API Endpoint using Gemini 3.5 Flash

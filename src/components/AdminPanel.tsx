@@ -25,7 +25,32 @@ export default function AdminPanel({
   onUpdateConsultationStatus,
   onDeleteConsultation
 }: AdminPanelProps) {
-  const [activeTab, setActiveTab] = useState<"leads" | "packages" | "supports">("leads");
+  const [activeTab, setActiveTab] = useState<"leads" | "payments" | "packages" | "supports">("leads");
+
+  // Local state for payment orders list
+  const [orders, setOrders] = useState<any[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+
+  const fetchOrders = async () => {
+    setLoadingOrders(true);
+    try {
+      const res = await fetch("/api/payments");
+      const data = await res.json();
+      if (res.ok) {
+        setOrders(data);
+      }
+    } catch (err) {
+      console.error("Lỗi lấy danh sách đơn hàng:", err);
+    } finally {
+      setLoadingOrders(false);
+    }
+  };
+
+  React.useEffect(() => {
+    if (activeTab === "payments") {
+      fetchOrders();
+    }
+  }, [activeTab]);
 
   // Local states for editing packages
   const [editedPackages, setEditedPackages] = useState<CoursePackage[]>([]);
@@ -172,9 +197,10 @@ export default function AdminPanel({
       )}
 
       {/* Tabs list */}
-      <div className="flex border-b border-zinc-800/80 mb-6">
+      <div className="flex border-b border-zinc-800/80 mb-6 overflow-x-auto">
         {[
           { id: "leads", label: `Yêu Cầu Tư Vấn (${consultations.length})` },
+          { id: "payments", label: "Đơn Hàng & Thanh Toán" },
           { id: "packages", label: "Gói Khóa Học" },
           { id: "supports", label: "Đồng Hành Học Viên" }
         ].map((tab) => (
@@ -185,7 +211,7 @@ export default function AdminPanel({
               setIsEditingPkgs(false);
               setIsEditingSupports(false);
             }}
-            className={`px-4 sm:px-6 py-3.5 text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer ${
+            className={`px-4 sm:px-6 py-3.5 text-xs sm:text-sm font-bold border-b-2 whitespace-nowrap transition-all cursor-pointer ${
               activeTab === tab.id
                 ? "border-yellow-500 text-yellow-500 bg-yellow-500/5"
                 : "border-transparent text-gray-400 hover:text-gray-200"
@@ -592,6 +618,254 @@ export default function AdminPanel({
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Payments Tab Content */}
+      {activeTab === "payments" && (
+        <div className="space-y-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <p className="text-gray-400 text-xs sm:text-sm italic">
+                Theo dõi & quản lý các đơn hàng đăng ký mua gói khóa học qua chuyển khoản QR tự động.
+              </p>
+            </div>
+            
+            <button
+              onClick={fetchOrders}
+              disabled={loadingOrders}
+              className="inline-flex items-center space-x-1.5 rounded-lg border border-zinc-800 bg-zinc-900 text-yellow-500 hover:text-white hover:bg-zinc-800 px-4 py-2.5 text-xs font-bold cursor-pointer disabled:opacity-40"
+            >
+              <RefreshCcw className={`h-3.5 w-3.5 ${loadingOrders ? "animate-spin" : ""}`} />
+              <span>Cập Nhật Đơn Hàng</span>
+            </button>
+          </div>
+
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-4 bg-zinc-900/50 border border-zinc-800 rounded-xl">
+              <span className="text-[10px] text-gray-500 font-mono uppercase tracking-wider block mb-1">Tổng Số Đơn Hàng</span>
+              <span className="text-xl sm:text-2xl font-bold font-mono text-white">{orders.length}</span>
+            </div>
+            <div className="p-4 bg-zinc-900/50 border border-zinc-800 rounded-xl">
+              <span className="text-[10px] text-yellow-500 font-mono uppercase tracking-wider block mb-1">Đang Chờ (Pending)</span>
+              <span className="text-xl sm:text-2xl font-bold font-mono text-yellow-500">
+                {orders.filter((o: any) => o.status === "Pending").length}
+              </span>
+            </div>
+            <div className="p-4 bg-zinc-900/50 border border-zinc-800 rounded-xl">
+              <span className="text-[10px] text-green-500 font-mono uppercase tracking-wider block mb-1 font-bold">Thành Công (Completed)</span>
+              <span className="text-xl sm:text-2xl font-bold font-mono text-green-500">
+                {orders.filter((o: any) => o.status === "Completed").length}
+              </span>
+            </div>
+            <div className="p-4 bg-zinc-900/50 border border-zinc-800 rounded-xl">
+              <span className="text-[10px] text-yellow-500 font-mono uppercase tracking-wider block mb-1">Tổng Doanh Thu</span>
+              <span className="text-lg sm:text-xl font-bold font-mono text-yellow-500">
+                {orders
+                  .filter((o: any) => o.status === "Completed")
+                  .reduce((sum: number, o: any) => sum + (o.amount || 0), 0)
+                  .toLocaleString("vi-VN")}{" "}
+                đ
+              </span>
+            </div>
+          </div>
+
+          {/* Orders Table */}
+          {orders.length === 0 ? (
+            <div className="text-center py-16 border border-dashed border-zinc-800 rounded-xl bg-zinc-900/10">
+              <p className="text-gray-500 text-sm font-mono">Chưa có giao dịch thanh toán nào được tạo.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto border border-zinc-800 rounded-xl bg-zinc-900/10">
+              <table className="w-full text-left text-xs sm:text-sm text-gray-300 border-collapse">
+                <thead>
+                  <tr className="border-b border-zinc-800 text-gray-400 font-mono uppercase tracking-wider text-[10px] bg-zinc-900/30">
+                    <th className="py-3 px-4">Thời gian / Mã Memo</th>
+                    <th className="py-3 px-4">Học Viên</th>
+                    <th className="py-3 px-4">Gói Khóa Học</th>
+                    <th className="py-3 px-4">Số Tiền</th>
+                    <th className="py-3 px-4">Trạng Thái</th>
+                    <th className="py-3 px-4 text-right">Thao Tác</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-800/60">
+                  {[...orders]
+                    .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                    .map((order: any) => {
+                      const matchedPkg = packages.find((p) => p.id === order.packageId);
+                      return (
+                        <tr key={order.id} className="hover:bg-zinc-900/20 transition-colors">
+                          <td className="py-4 px-4">
+                            <div className="text-gray-500 font-mono text-[10px] mb-1">
+                              {new Date(order.createdAt).toLocaleString("vi-VN")}
+                            </div>
+                            <div className="font-mono text-sm text-yellow-500 font-bold bg-yellow-500/5 px-2 py-0.5 rounded border border-yellow-500/10 inline-block">
+                              {order.memo}
+                            </div>
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="font-bold text-white text-sm">{order.fullName}</div>
+                            <div className="text-gray-400 text-xs font-mono">{order.phoneNumber}</div>
+                            {order.email && <div className="text-gray-500 text-[11px]">{order.email}</div>}
+                          </td>
+                          <td className="py-4 px-4">
+                            <span className="text-gray-300 font-medium">
+                              {matchedPkg ? matchedPkg.name : `Nhóm: ${order.activeGroup || order.packageId}`}
+                            </span>
+                          </td>
+                          <td className="py-4 px-4 font-mono font-bold text-white">
+                            {order.amount.toLocaleString("vi-VN")} đ
+                          </td>
+                          <td className="py-4 px-4">
+                            {order.status === "Completed" ? (
+                              <span className="inline-flex items-center rounded-md bg-green-500/10 px-2.5 py-1 text-xs font-bold text-green-500 border border-green-500/20">
+                                <CheckCircle className="h-3 w-3 mr-1.5" />
+                                Thành Công
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center rounded-md bg-yellow-500/10 px-2.5 py-1 text-xs font-bold text-yellow-500 border border-yellow-500/20">
+                                Đang Chờ
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-4 px-4 text-right">
+                            <div className="flex items-center justify-end space-x-2">
+                              {order.status === "Pending" && (
+                                <button
+                                  onClick={async () => {
+                                    if (!window.confirm(`Xác nhận kích hoạt thủ công cho đơn hàng ${order.memo}?`)) return;
+                                    try {
+                                      const res = await fetch("/api/payment-webhook", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({
+                                          gateway: "Techcombank",
+                                          transactionDate: new Date().toISOString(),
+                                          amount: order.amount,
+                                          memo: order.memo,
+                                          accountNumber: "19035406733013"
+                                        })
+                                      });
+                                      if (res.ok) {
+                                        setSaveStatus(`Đã duyệt & kích hoạt thủ công gói học viên cho mã ${order.memo}!`);
+                                        fetchOrders();
+                                        setTimeout(() => setSaveStatus(null), 3000);
+                                      } else {
+                                        alert("Gặp lỗi khi kích hoạt đơn hàng.");
+                                      }
+                                    } catch (err) {
+                                      console.error("Lỗi duyệt thủ công:", err);
+                                    }
+                                  }}
+                                  className="inline-flex items-center space-x-1 rounded bg-yellow-500 hover:bg-yellow-400 text-black px-2.5 py-1 text-xs font-bold transition-all cursor-pointer"
+                                  title="Duyệt chuyển khoản thủ công"
+                                >
+                                  <Check className="h-3 w-3" />
+                                  <span>Duyệt</span>
+                                </button>
+                              )}
+                              <button
+                                onClick={async () => {
+                                  if (!window.confirm("Bạn có chắc chắn muốn xóa đơn hàng này khỏi lịch sử hệ thống?")) return;
+                                  try {
+                                    const res = await fetch(`/api/payments/${order.id}`, {
+                                      method: "DELETE"
+                                    });
+                                    if (res.ok) {
+                                      setSaveStatus("Xóa đơn hàng thành công!");
+                                      fetchOrders();
+                                      setTimeout(() => setSaveStatus(null), 3000);
+                                    } else {
+                                      alert("Gặp lỗi khi xóa đơn hàng.");
+                                    }
+                                  } catch (err) {
+                                    console.error("Lỗi xóa đơn hàng:", err);
+                                  }
+                                }}
+                                className="p-1 text-red-500 hover:bg-red-500/10 rounded transition-all cursor-pointer"
+                                title="Xóa đơn hàng"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Webhook Sandbox Tools */}
+          <div className="p-5 border border-zinc-800 rounded-xl bg-zinc-950">
+            <h4 className="text-xs font-bold font-mono text-yellow-500 uppercase tracking-widest mb-3">
+              CÔNG CỤ GIẢ LẬP BIẾN ĐỘNG SỐ DƯ (MOCK WEBHOOK GATEWAY)
+            </h4>
+            <p className="text-gray-400 text-xs mb-4">
+              Dành cho Người quản trị / Lập trình viên: Mô phỏng tín hiệu chuyển khoản từ ngân hàng Techcombank gửi về Server (IPN Webhook). Nhập đúng Mã nội dung (Memo) và Số tiền của hóa đơn đang Chờ bên trên để hệ thống tự động xác nhận và kích hoạt ngay lập tức.
+            </p>
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                const mockMemo = formData.get("mockMemo") as string;
+                const mockAmount = Number(formData.get("mockAmount"));
+                if (!mockMemo) return;
+
+                try {
+                  const res = await fetch("/api/payment-webhook", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      gateway: "Techcombank",
+                      transactionDate: new Date().toISOString(),
+                      amount: mockAmount || 100000,
+                      memo: mockMemo,
+                      accountNumber: "19035406733013"
+                    })
+                  });
+                  if (res.ok) {
+                    setSaveStatus(`[Simulator] Đã gửi webhook giả lập thành công cho mã ${mockMemo}!`);
+                    fetchOrders();
+                    setTimeout(() => setSaveStatus(null), 3000);
+                  } else {
+                    alert("Gặp lỗi khi gửi Webhook giả lập.");
+                  }
+                } catch (err) {
+                  console.error(err);
+                }
+              }}
+              className="flex flex-wrap gap-3 items-end"
+            >
+              <div className="flex-1 min-w-[200px]">
+                <label className="block text-[10px] text-gray-500 font-mono mb-1">MÃ NỘI DUNG CHUYỂN KHOẢN (MEMO)</label>
+                <input
+                  name="mockMemo"
+                  type="text"
+                  placeholder="Ví dụ: MJ1234"
+                  required
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded px-3 py-2 text-xs text-white uppercase focus:outline-none focus:border-yellow-500"
+                />
+              </div>
+              <div className="w-48">
+                <label className="block text-[10px] text-gray-500 font-mono mb-1">SỐ TIỀN CHUYỂN (VNĐ)</label>
+                <input
+                  name="mockAmount"
+                  type="number"
+                  placeholder="Ví dụ: 99000"
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded px-3 py-2 text-xs text-white focus:outline-none focus:border-yellow-500"
+                />
+              </div>
+              <button
+                type="submit"
+                className="bg-yellow-500 hover:bg-yellow-400 text-black text-xs font-bold px-4 py-2 rounded h-[38px] transition-all cursor-pointer"
+              >
+                Gửi Tín Hiệu Webhook
+              </button>
+            </form>
+          </div>
         </div>
       )}
     </div>
